@@ -13,6 +13,7 @@ namespace ErrorCodes
 class ASTIdentifier;
 class ASTFunction;
 class ASTSelectQuery;
+class ASTCreateQuery;
 struct ASTTablesInSelectQueryElement;
 struct ASTArrayJoin;
 struct ASTTableExpression;
@@ -33,6 +34,7 @@ private:
     static void visit(const ASTFunction & node, const ASTPtr &, Data & data);
     static void visit(const ASTTablesInSelectQueryElement & node, const ASTPtr &, Data & data);
     static void visit(const ASTTableExpression & node, const ASTPtr &, Data & data);
+    static void visit(const ASTCreateQuery & node, const ASTPtr &, Data & data);
     static void visit(const ASTArrayJoin & node, const ASTPtr &, Data & data);
     static void visit(const ASTSelectQuery & select, const ASTPtr &, Data & data);
 };

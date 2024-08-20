@@ -1,14 +1,16 @@
 #include <Interpreters/RequiredSourceColumnsVisitor.h>
-#include <Common/typeid_cast.h>
+
 #include <Core/Names.h>
-#include <Parsers/IAST.h>
-#include <Parsers/ASTIdentifier.h>
+#include <Parsers/ASTCreateQuery.h>
 #include <Parsers/ASTFunction.h>
+#include <Parsers/ASTIdentifier.h>
+#include <Parsers/ASTInterpolateElement.h>
+#include <Parsers/ASTLiteral.h>
 #include <Parsers/ASTSelectQuery.h>
 #include <Parsers/ASTSubquery.h>
 #include <Parsers/ASTTablesInSelectQuery.h>
-#include <Parsers/ASTInterpolateElement.h>
-#include <Parsers/ASTLiteral.h>
+#include <Parsers/IAST.h>
+#include <Common/typeid_cast.h>
 
 namespace DB
 {
@@ -48,7 +50,8 @@ bool RequiredSourceColumnsMatcher::needChildVisit(const ASTPtr & node, const AST
         return false;
 
     /// Processed. Do not need children.
-    if (node->as<ASTTableExpression>() || node->as<ASTArrayJoin>() || node->as<ASTSelectQuery>() || node->as<ASTInterpolateElement>())
+    if (node->as<ASTTableExpression>() || node->as<ASTArrayJoin>() || node->as<ASTSelectQuery>() || node->as<ASTInterpolateElement>()
+        || node->as<ASTCreateQuery>())
         return false;
 
     if (const auto * f = node->as<ASTFunction>())
@@ -107,6 +110,12 @@ void RequiredSourceColumnsMatcher::visit(const ASTPtr & ast, Data & data)
     if (auto * t = ast->as<ASTArrayJoin>())
     {
         data.has_array_join = true;
+        visit(*t, ast, data);
+        return;
+    }
+
+    if (auto * t = ast->as<ASTCreateQuery>())
+    {
         visit(*t, ast, data);
         return;
     }
@@ -201,6 +210,20 @@ void RequiredSourceColumnsMatcher::visit(const ASTTablesInSelectQueryElement & n
 /// ASTIdentifiers here are tables. Do not visit them as generic ones.
 void RequiredSourceColumnsMatcher::visit(const ASTTableExpression &, const ASTPtr &, Data &)
 {
+}
+
+/// ASTIdentifiers in ASTCreateQuery not necessarily mean required source columns
+void RequiredSourceColumnsMatcher::visit(const ASTCreateQuery & node, const ASTPtr &, Data & data)
+{
+    const IAST * table = node.table.get();
+    const IAST * columns_list = node.columns_list;
+    RequiredSourceColumnsVisitor visitor(data);
+    for (const auto & child : node.children)
+    {
+        const IAST * child_ast = child.get();
+        if (child_ast != table && child_ast != columns_list)
+            visitor.visit(child);
+    }
 }
 
 void RequiredSourceColumnsMatcher::visit(const ASTArrayJoin & node, const ASTPtr &, Data & data)
